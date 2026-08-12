@@ -20,8 +20,10 @@ jobs:
         include:
           - jellyfin: "10.11.11"
             framework: net9.0
+            artifact: Jellyfin.Plugin.Danmaku-0.2.0.0-Jellyfin-10.11.11-net9.0
           - jellyfin: "12"
             framework: net10.0
+            artifact: Jellyfin.Plugin.Danmaku-0.2.0.0-Jellyfin-12-net10.0
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -41,3 +43,10 @@ jobs:
 
       - name: Build
         run: dotnet build Jellyfin.Plugin.Danmaku.csproj --configuration Release --framework ${{ matrix.framework }} --no-restore
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: bin/Release/${{ matrix.framework }}/Jellyfin.Plugin.Danmaku.dll
+          if-no-files-found: error
