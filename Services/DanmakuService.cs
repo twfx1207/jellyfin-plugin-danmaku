@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Jellyfin.Plugin.Danmaku.Configuration;
 using Jellyfin.Plugin.Danmaku.Models;
 using MediaBrowser.Controller.Entities;
@@ -168,6 +169,7 @@ public sealed class DanmakuService
         SetMatchRequest request,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
         _ = GetItemDescriptor(userId, itemId);
         if (string.IsNullOrWhiteSpace(request.EpisodeId))
         {
@@ -236,6 +238,10 @@ public sealed class DanmakuService
         };
     }
 
+    [SuppressMessage(
+        "Security",
+        "CA3003:Review code for file path injection vulnerabilities",
+        Justification = "The media path comes from an access-checked Jellyfin library item, not from request input.")]
     private ItemDescriptor GetItemDescriptor(Guid userId, Guid itemId)
     {
         var item = userId.Equals(Guid.Empty)
@@ -342,16 +348,16 @@ public sealed class DanmakuService
     }
 
     private static IReadOnlyList<DanmakuCommentDto> LimitComments(
-        IReadOnlyList<DanmakuCommentDto> comments,
+        DanmakuCommentDto[] comments,
         int maximum)
     {
-        if (comments.Count <= maximum)
+        if (comments.Length <= maximum)
         {
             return comments;
         }
 
         var result = new DanmakuCommentDto[maximum];
-        var step = comments.Count / (double)maximum;
+        var step = comments.Length / (double)maximum;
         for (var index = 0; index < maximum; index++)
         {
             result[index] = comments[(int)Math.Floor(index * step)];

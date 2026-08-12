@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Danmaku.Services;
 
-internal sealed class AssociationStore
+internal sealed partial class AssociationStore
 {
     private readonly string _filePath;
     private readonly ILogger<AssociationStore> _logger;
@@ -88,7 +88,7 @@ internal sealed class AssociationStore
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Unable to load persisted danmaku matches from {Path}", _filePath);
+            LogLoadFailure(exception, _filePath);
         }
     }
 
@@ -118,4 +118,10 @@ internal sealed class AssociationStore
             }
         }
     }
+
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Warning,
+        Message = "Unable to load persisted danmaku matches from {Path}")]
+    private partial void LogLoadFailure(Exception exception, string path);
 }

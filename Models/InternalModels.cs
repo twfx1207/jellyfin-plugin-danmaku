@@ -68,6 +68,13 @@ public sealed class DanmakuSourceException : Exception
     /// <summary>
     /// Initializes a new instance of the <see cref="DanmakuSourceException"/> class.
     /// </summary>
+    public DanmakuSourceException()
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DanmakuSourceException"/> class.
+    /// </summary>
     /// <param name="message">The error message.</param>
     public DanmakuSourceException(string message)
         : base(message)

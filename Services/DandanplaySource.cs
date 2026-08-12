@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Danmaku.Services;
 
-internal sealed class DandanplaySource : IDanmakuSource
+internal sealed partial class DandanplaySource : IDanmakuSource
 {
     private const int HashLength = 16 * 1024 * 1024;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -61,11 +61,11 @@ internal sealed class DandanplaySource : IDanmakuSource
             }
             catch (IOException exception)
             {
-                _logger.LogDebug(exception, "Unable to hash {Path}; falling back to metadata matching", item.FilePath);
+                LogHashFailure(exception, item.FilePath);
             }
             catch (UnauthorizedAccessException exception)
             {
-                _logger.LogDebug(exception, "Unable to read {Path}; falling back to metadata matching", item.FilePath);
+                LogHashFailure(exception, item.FilePath);
             }
         }
 
@@ -367,4 +367,10 @@ internal sealed class DandanplaySource : IDanmakuSource
             throw new DanmakuSourceException("请先在插件设置中填写弹弹play AppId 和 AppSecret。");
         }
     }
+
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Debug,
+        Message = "Unable to hash {Path}; falling back to metadata matching")]
+    private partial void LogHashFailure(Exception exception, string path);
 }

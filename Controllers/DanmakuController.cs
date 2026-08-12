@@ -208,7 +208,7 @@ public sealed class DanmakuController : ControllerBase
             && !userId.Equals(Guid.Empty);
     }
 
-    private ObjectResult NotFoundProblem(string message)
+    private NotFoundObjectResult NotFoundProblem(string message)
     {
         return NotFound(new ProblemDetails
         {

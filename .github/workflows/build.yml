@@ -12,18 +12,29 @@ permissions:
 
 jobs:
   build:
+    name: Jellyfin ${{ matrix.jellyfin }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - jellyfin: "10.11.11"
+            framework: net9.0
+          - jellyfin: "12"
+            framework: net10.0
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            9.0.x
+            10.0.x
 
       - name: Restore
         run: dotnet restore Jellyfin.Plugin.Danmaku.slnx
 
       - name: Build
-        run: dotnet build Jellyfin.Plugin.Danmaku.slnx --configuration Release --no-restore
+        run: dotnet build Jellyfin.Plugin.Danmaku.csproj --configuration Release --framework ${{ matrix.framework }} --no-restore
