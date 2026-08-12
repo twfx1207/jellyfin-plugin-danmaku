@@ -9,7 +9,7 @@ internal sealed partial class WebClientInjector : IHostedService
 {
     private const string StartMarker = "<!-- Jellyfin.Plugin.Danmaku:start -->";
     private const string EndMarker = "<!-- Jellyfin.Plugin.Danmaku:end -->";
-    private const string ScriptTag = "<script data-plugin=\"Jellyfin.Plugin.Danmaku\" src=\"../Danmaku/client.js\" defer></script>";
+    private static readonly string ClientVersion = typeof(WebClientInjector).Assembly.GetName().Version?.ToString() ?? "unknown";
     private readonly IApplicationPaths _applicationPaths;
     private readonly ILogger<WebClientInjector> _logger;
 
@@ -41,12 +41,21 @@ internal sealed partial class WebClientInjector : IHostedService
             }
 
             var newline = withoutOldBlock.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
-            var block = StartMarker + newline + ScriptTag + newline + EndMarker + newline;
+            var scriptTag = "<script data-plugin=\"Jellyfin.Plugin.Danmaku\" data-version=\""
+                + ClientVersion
+                + "\" src=\"../Danmaku/client.js?v="
+                + ClientVersion
+                + "\" defer></script>";
+            var block = StartMarker + newline + scriptTag + newline + EndMarker + newline;
             var updated = withoutOldBlock.Insert(bodyEnd, block);
             if (!string.Equals(original, updated, StringComparison.Ordinal))
             {
                 await WriteAtomicallyAsync(indexPath, updated, cancellationToken).ConfigureAwait(false);
-                LogInjected(indexPath);
+                LogInjected(ClientVersion, indexPath);
+            }
+            else
+            {
+                LogInjectionCurrent(ClientVersion, indexPath);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -171,12 +180,18 @@ internal sealed partial class WebClientInjector : IHostedService
     [LoggerMessage(
         EventId = 3,
         Level = LogLevel.Information,
-        Message = "Injected the Danmaku web client into {Path}")]
-    private partial void LogInjected(string path);
+        Message = "Injected Danmaku web client {Version} into {Path}")]
+    private partial void LogInjected(string version, string path);
 
     [LoggerMessage(
         EventId = 4,
         Level = LogLevel.Warning,
         Message = "Unable to inject the Danmaku web client into {Path}. See the plugin README for manual installation")]
     private partial void LogInjectionFailure(Exception exception, string path);
+
+    [LoggerMessage(
+        EventId = 5,
+        Level = LogLevel.Information,
+        Message = "Danmaku web client {Version} is already injected into {Path}")]
+    private partial void LogInjectionCurrent(string version, string path);
 }

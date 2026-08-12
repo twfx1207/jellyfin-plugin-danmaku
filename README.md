@@ -36,12 +36,12 @@ dotnet build Jellyfin.Plugin.Danmaku.csproj -c Release -f net10.0
 
 每次 GitHub Actions 构建也会在运行详情页底部生成两个可下载产物，名称中会明确标出 Jellyfin 版本与目标框架。压缩包内只包含对应版本的 `Jellyfin.Plugin.Danmaku.dll`，请勿跨版本混用。
 
-将正确的 DLL 复制到 Jellyfin 数据目录下独立的插件目录，例如 `plugins/Danmaku_0.2.0.0/`，然后重启 Jellyfin。进入“控制台 → 插件 → 弹幕”填写弹弹play AppId 与 AppSecret，保存后再次重启并强制刷新浏览器页面。若日志出现 `ReflectionTypeLoadException` 或“不兼容的 shared libraries”，首先确认没有把 `net10.0` 产物安装到 Jellyfin 10.11。
+将正确的 DLL 复制到 Jellyfin 数据目录下独立的插件目录，例如 `plugins/Danmaku_0.2.1.0/`，然后完整重启 Jellyfin。进入“控制台 → 插件 → 弹幕”填写弹弹play AppId 与 AppSecret，保存后再次重启并强制刷新浏览器页面。若日志出现 `ReflectionTypeLoadException` 或“不兼容的 shared libraries”，首先确认没有把 `net10.0` 产物安装到 Jellyfin 10.11。
 
-插件启动时会在 Jellyfin Web 的 `index.html` 中写入一段带有明确起止标记的同源脚本标签，重复启动不会重复插入，卸载时会尝试移除。若 Web 根目录为只读，服务端仍可启动，但需要将以下标签以等价方式加入所使用的 jellyfin-web 构建中：
+插件启动时会在 Jellyfin Web 的 `index.html` 中写入一段带有明确起止标记的同源脚本标签。脚本 URL 携带插件程序集版本，因此升级会替换旧注入块并绕过浏览器或代理缓存；同版本重复启动不会重复插入，卸载时会尝试移除。启动日志应出现 `Injected Danmaku web client <版本>` 或 `Danmaku web client <版本> is already injected`。若 Web 根目录为只读，服务端仍可启动，但日志会给出警告，需要将以下标签以等价方式加入所使用的 jellyfin-web 构建中：
 
 ```html
-<script data-plugin="Jellyfin.Plugin.Danmaku" src="../Danmaku/client.js" defer></script>
+<script data-plugin="Jellyfin.Plugin.Danmaku" data-version="0.2.1.0" src="../Danmaku/client.js?v=0.2.1.0" defer></script>
 ```
 
 此注入方式是因为 Jellyfin 服务端插件能够注册控制器和管理页面，但 jellyfin-web 目前没有稳定的播放器扩展 ABI。Web 客户端升级后，播放器 DOM 选择器可能需要随之调整。

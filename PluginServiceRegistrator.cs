@@ -17,7 +17,8 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddHttpClient(DanmakuService.HttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(20);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Jellyfin-Danmaku/0.1");
+            var version = typeof(PluginServiceRegistrator).Assembly.GetName().Version?.ToString(3) ?? "unknown";
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Jellyfin-Danmaku/" + version);
         });
         serviceCollection.AddSingleton<AssociationStore>();
         serviceCollection.AddSingleton<DandanplaySource>();

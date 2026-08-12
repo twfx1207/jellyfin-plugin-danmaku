@@ -1,10 +1,13 @@
 (function () {
     'use strict';
 
+    const CLIENT_VERSION = '0.2.1.0';
     if (window.__jellyfinDanmakuLoaded) {
+        console.debug('[Danmaku] Web client ' + CLIENT_VERSION + ' skipped because a client is already active.');
         return;
     }
     window.__jellyfinDanmakuLoaded = true;
+    window.__jellyfinDanmakuVersion = CLIENT_VERSION;
 
     const STORAGE_KEY = 'jellyfin-danmaku-enabled';
     const PLAYER_SETTINGS_STORAGE_KEY = 'jellyfin-danmaku-player-settings-v1';
@@ -1179,6 +1182,7 @@
             state.options = await waitForOptions();
             state.enabled = readLocalEnabled();
             state.playerSettings = readPlayerSettings();
+            console.info('[Danmaku] Web client ' + CLIENT_VERSION + ' initialized.');
             const observer = new MutationObserver(function (mutations) {
                 const needsAttach = mutations.some(function (mutation) {
                     const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
