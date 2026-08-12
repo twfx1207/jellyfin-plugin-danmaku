@@ -234,7 +234,7 @@ public sealed class DanmakuService
             Matched = true,
             Match = association.ToDto(),
             Comments = comments,
-            Message = comments.Count == 0 ? "已匹配，但弹幕源没有返回弹幕。" : null
+            Message = comments.Length == 0 ? "已匹配，但弹幕源没有返回弹幕。" : null
         };
     }
 
@@ -347,7 +347,7 @@ public sealed class DanmakuService
         };
     }
 
-    private static IReadOnlyList<DanmakuCommentDto> LimitComments(
+    private static DanmakuCommentDto[] LimitComments(
         DanmakuCommentDto[] comments,
         int maximum)
     {
