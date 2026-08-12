@@ -1,0 +1,15 @@
+---
+name: "Danmaku"
+guid: "2e4ba9dd-7312-4ec7-b1e2-214cbf5b65cc"
+version: "0.1.0.0"
+targetAbi: "12.0.0.0"
+framework: "net10.0"
+overview: "Danmaku overlay for the Jellyfin web player"
+description: >
+  Matches Jellyfin videos with dandanplay or a configurable custom HTTP source
+  and renders comments over the web player.
+category: "General"
+owner: "twfx1207"
+artifacts:
+- "Jellyfin.Plugin.Danmaku.dll"
+changelog: "Initial development version"

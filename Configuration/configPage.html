@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>弹幕</title>
+</head>
+<body>
+    <div id="DanmakuConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="DanmakuConfigForm">
+                    <h2>常规</h2>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="DanmakuEnabled" type="checkbox" is="emby-checkbox" />
+                            <span>启用网页端弹幕</span>
+                        </label>
+                        <div class="fieldDescription">首次安装后需要重启 Jellyfin，并对网页执行一次强制刷新。</div>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="DanmakuAutoMatch" type="checkbox" is="emby-checkbox" />
+                            <span>播放时自动匹配</span>
+                        </label>
+                        <div class="fieldDescription">优先使用文件前 16 MiB 的 MD5；未精确命中时使用 TMDB、标题与集数搜索，并且只自动采用唯一结果。</div>
+                    </div>
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="DanmakuDefaultSource">默认弹幕源</label>
+                        <select is="emby-select" id="DanmakuDefaultSource" class="emby-select-withcolor emby-select">
+                            <option value="dandanplay">弹弹play</option>
+                            <option value="custom">自定义 HTTP 源</option>
+                        </select>
+                    </div>
+
+                    <h2>弹弹play</h2>
+                    <p class="fieldDescription">
+                        本插件接入<a href="https://www.dandanplay.com" target="_blank" rel="noopener noreferrer">弹弹play开放弹幕网络</a>。
+                        请在其开发者中心申请 AppId 与 AppSecret；密钥只由 Jellyfin 服务端使用，不会发送到浏览器。
+                    </p>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="DandanplayBaseUrl">API 地址</label>
+                        <input id="DandanplayBaseUrl" type="url" is="emby-input" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="DandanplayAppId">AppId</label>
+                        <input id="DandanplayAppId" type="text" is="emby-input" autocomplete="off" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="DandanplayAppSecret">AppSecret</label>
+                        <input id="DandanplayAppSecret" type="password" is="emby-input" autocomplete="new-password" />
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="DandanplayWithRelated" type="checkbox" is="emby-checkbox" />
+                            <span>包含关联的第三方弹幕</span>
+                        </label>
+                    </div>
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="DandanplayChConvert">简繁转换</label>
+                        <select is="emby-select" id="DandanplayChConvert" class="emby-select-withcolor emby-select">
+                            <option value="0">不转换</option>
+                            <option value="1">转换为简体</option>
+                            <option value="2">转换为繁体</option>
+                        </select>
+                    </div>
+
+                    <h2>自定义 HTTP 源</h2>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="CustomSourceEnabled" type="checkbox" is="emby-checkbox" />
+                            <span>启用自定义源</span>
+                        </label>
+                    </div>
+                    <div id="CustomSourceFields">
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="CustomSourceName">显示名称</label>
+                            <input id="CustomSourceName" type="text" is="emby-input" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="CustomSourceBaseUrl">基础 URL</label>
+                            <input id="CustomSourceBaseUrl" type="url" is="emby-input" placeholder="https://example.test/api/danmaku" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="CustomMatchPath">匹配路径</label>
+                            <input id="CustomMatchPath" type="text" is="emby-input" placeholder="/match" />
+                            <div class="fieldDescription">插件会以 GET 查询参数传递 itemId、title、seriesName、season、episode、tmdbId、fileName、fileSize、duration、query 与 automatic。</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="CustomCommentsPath">弹幕路径模板</label>
+                            <input id="CustomCommentsPath" type="text" is="emby-input" placeholder="/comments/{episodeId}" />
+                            <div class="fieldDescription">使用 {episodeId} 作为所选节目编号占位符。</div>
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="CustomApiKeyHeader">API Key 请求头</label>
+                            <input id="CustomApiKeyHeader" type="text" is="emby-input" placeholder="X-Api-Key" />
+                        </div>
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="CustomApiKey">API Key</label>
+                            <input id="CustomApiKey" type="password" is="emby-input" autocomplete="new-password" />
+                        </div>
+                        <div class="fieldDescription">
+                            匹配响应格式：<code>{"isMatched":false,"matches":[{"episodeId":"1","animeTitle":"标题","episodeTitle":"第1集","shift":0}]}</code>；
+                            弹幕响应格式：<code>{"comments":[{"time":12.3,"mode":1,"color":16777215,"text":"内容"}]}</code>。
+                        </div>
+                    </div>
+
+                    <h2>显示与缓存</h2>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="CacheMinutes">缓存分钟数</label>
+                        <input id="CacheMinutes" type="number" is="emby-input" min="1" max="10080" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MaxComments">单集最多加载弹幕数</label>
+                        <input id="MaxComments" type="number" is="emby-input" min="100" max="30000" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="DanmakuOpacity">透明度（0.1 - 1）</label>
+                        <input id="DanmakuOpacity" type="number" is="emby-input" min="0.1" max="1" step="0.05" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="FontScale">字号缩放（0.5 - 2.5）</label>
+                        <input id="FontScale" type="number" is="emby-input" min="0.5" max="2.5" step="0.1" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="SpeedSeconds">滚动穿屏秒数</label>
+                        <input id="SpeedSeconds" type="number" is="emby-input" min="3" max="30" step="0.5" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MaxOnScreen">同屏上限</label>
+                        <input id="MaxOnScreen" type="number" is="emby-input" min="10" max="300" />
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>保存</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            (function () {
+                'use strict';
+                var pluginId = '2e4ba9dd-7312-4ec7-b1e2-214cbf5b65cc';
+                var page = document.querySelector('#DanmakuConfigPage');
+                var form = document.querySelector('#DanmakuConfigForm');
+
+                function value(id, fallback) {
+                    var current = document.querySelector('#' + id).value;
+                    return current == null || current === '' ? fallback : current;
+                }
+
+                function numberValue(id, fallback) {
+                    var parsed = Number(value(id, fallback));
+                    return Number.isFinite(parsed) ? parsed : fallback;
+                }
+
+                function updateCustomVisibility() {
+                    document.querySelector('#CustomSourceFields').style.display =
+                        document.querySelector('#CustomSourceEnabled').checked ? '' : 'none';
+                }
+
+                document.querySelector('#CustomSourceEnabled').addEventListener('change', updateCustomVisibility);
+
+                page.addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        document.querySelector('#DanmakuEnabled').checked = config.Enabled !== false;
+                        document.querySelector('#DanmakuAutoMatch').checked = config.AutoMatch !== false;
+                        document.querySelector('#DanmakuDefaultSource').value = config.DefaultSource || 'dandanplay';
+                        document.querySelector('#DandanplayBaseUrl').value = config.DandanplayBaseUrl || 'https://api.dandanplay.net';
+                        document.querySelector('#DandanplayAppId').value = config.DandanplayAppId || '';
+                        document.querySelector('#DandanplayAppSecret').value = config.DandanplayAppSecret || '';
+                        document.querySelector('#DandanplayWithRelated').checked = config.DandanplayWithRelated !== false;
+                        document.querySelector('#DandanplayChConvert').value = String(config.DandanplayChConvert || 0);
+                        document.querySelector('#CustomSourceEnabled').checked = config.CustomSourceEnabled === true;
+                        document.querySelector('#CustomSourceName').value = config.CustomSourceName || '自定义源';
+                        document.querySelector('#CustomSourceBaseUrl').value = config.CustomSourceBaseUrl || '';
+                        document.querySelector('#CustomMatchPath').value = config.CustomMatchPath || '/match';
+                        document.querySelector('#CustomCommentsPath').value = config.CustomCommentsPath || '/comments/{episodeId}';
+                        document.querySelector('#CustomApiKeyHeader').value = config.CustomApiKeyHeader || 'X-Api-Key';
+                        document.querySelector('#CustomApiKey').value = config.CustomApiKey || '';
+                        document.querySelector('#CacheMinutes').value = config.CacheMinutes || 360;
+                        document.querySelector('#MaxComments').value = config.MaxComments || 6000;
+                        document.querySelector('#DanmakuOpacity').value = config.Opacity || 0.9;
+                        document.querySelector('#FontScale').value = config.FontScale || 1;
+                        document.querySelector('#SpeedSeconds').value = config.SpeedSeconds || 8;
+                        document.querySelector('#MaxOnScreen').value = config.MaxOnScreen || 80;
+                        updateCustomVisibility();
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+                form.addEventListener('submit', function (event) {
+                    event.preventDefault();
+                    if (document.querySelector('#DanmakuDefaultSource').value === 'custom'
+                        && !document.querySelector('#CustomSourceEnabled').checked) {
+                        window.alert('选择自定义源作为默认源前，请先启用自定义源。');
+                        return false;
+                    }
+
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        config.Enabled = document.querySelector('#DanmakuEnabled').checked;
+                        config.AutoMatch = document.querySelector('#DanmakuAutoMatch').checked;
+                        config.DefaultSource = document.querySelector('#DanmakuDefaultSource').value;
+                        config.DandanplayBaseUrl = value('DandanplayBaseUrl', 'https://api.dandanplay.net');
+                        config.DandanplayAppId = value('DandanplayAppId', '');
+                        config.DandanplayAppSecret = value('DandanplayAppSecret', '');
+                        config.DandanplayWithRelated = document.querySelector('#DandanplayWithRelated').checked;
+                        config.DandanplayChConvert = numberValue('DandanplayChConvert', 0);
+                        config.CustomSourceEnabled = document.querySelector('#CustomSourceEnabled').checked;
+                        config.CustomSourceName = value('CustomSourceName', '自定义源');
+                        config.CustomSourceBaseUrl = value('CustomSourceBaseUrl', '');
+                        config.CustomMatchPath = value('CustomMatchPath', '/match');
+                        config.CustomCommentsPath = value('CustomCommentsPath', '/comments/{episodeId}');
+                        config.CustomApiKeyHeader = value('CustomApiKeyHeader', 'X-Api-Key');
+                        config.CustomApiKey = value('CustomApiKey', '');
+                        config.CacheMinutes = numberValue('CacheMinutes', 360);
+                        config.MaxComments = numberValue('MaxComments', 6000);
+                        config.Opacity = numberValue('DanmakuOpacity', 0.9);
+                        config.FontScale = numberValue('FontScale', 1);
+                        config.SpeedSeconds = numberValue('SpeedSeconds', 8);
+                        config.MaxOnScreen = numberValue('MaxOnScreen', 80);
+                        ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                        });
+                    });
+                    return false;
+                });
+            }());
+        </script>
+    </div>
+</body>
+</html>
