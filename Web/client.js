@@ -7,6 +7,7 @@
     window.__jellyfinDanmakuLoaded = true;
 
     const STORAGE_KEY = 'jellyfin-danmaku-enabled';
+    const PLAYER_SETTINGS_STORAGE_KEY = 'jellyfin-danmaku-player-settings-v1';
     const state = {
         apiClient: null,
         options: null,
@@ -15,6 +16,7 @@
         overlay: null,
         toggleButton: null,
         matchButton: null,
+        settingsButton: null,
         itemId: null,
         match: null,
         candidates: [],
@@ -25,6 +27,7 @@
         laneAvailability: [],
         fixedLaneAvailability: { top: [], bottom: [] },
         enabled: true,
+        playerSettings: null,
         identifyToken: 0,
         loadToken: 0,
         attachTimer: 0,
@@ -126,7 +129,7 @@
             }
             .jf-danmaku-dialog h2 { margin: 0 0 1rem; }
             .jf-danmaku-dialog-row { display: flex; gap: .7rem; margin: .7rem 0; }
-            .jf-danmaku-dialog input, .jf-danmaku-dialog select {
+            .jf-danmaku-dialog input:not([type="range"]):not([type="checkbox"]), .jf-danmaku-dialog select {
                 box-sizing: border-box;
                 min-width: 0;
                 flex: 1;
@@ -158,6 +161,15 @@
             .jf-danmaku-result-title { display: block; font-size: 1rem; }
             .jf-danmaku-result-subtitle { display: block; margin-top: .2rem; opacity: .75; font-size: .86rem; }
             .jf-danmaku-dialog-status { min-height: 1.4rem; margin-top: .7rem; opacity: .8; }
+            .jf-danmaku-settings-grid { display: grid; gap: 1.2rem; }
+            .jf-danmaku-setting { display: grid; gap: .45rem; }
+            .jf-danmaku-setting-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+            .jf-danmaku-setting-value { min-width: 4rem; color: #00a4dc; text-align: right; font-variant-numeric: tabular-nums; }
+            .jf-danmaku-setting input[type="range"] { width: 100%; margin: 0; accent-color: #00a4dc; }
+            .jf-danmaku-setting-help { margin: 0; opacity: .7; font-size: .86rem; }
+            .jf-danmaku-checkbox { display: flex; align-items: center; gap: .7rem; cursor: pointer; }
+            .jf-danmaku-checkbox input { flex: none; width: 1.15rem; height: 1.15rem; margin: 0; accent-color: #00a4dc; }
+            .jf-danmaku-dialog-footer { justify-content: flex-end; margin-top: 1.4rem; }
             .jf-danmaku-toast {
                 position: fixed;
                 left: 50%;
@@ -223,6 +235,70 @@
             window.localStorage.setItem(STORAGE_KEY, enabled ? 'true' : 'false');
         } catch (error) {
             // Storage can be unavailable in private embedded web views.
+        }
+    }
+
+    function clampNumber(value, minimum, maximum, fallback) {
+        const number = Number(value);
+        return Number.isFinite(number) ? Math.max(minimum, Math.min(maximum, number)) : fallback;
+    }
+
+    function getDefaultPlayerSettings() {
+        return {
+            displayArea: 0.7,
+            opacity: clampNumber(state.options && state.options.opacity, 0.1, 1, 0.9),
+            showBottom: true,
+            speedMultiplier: 1
+        };
+    }
+
+    function normalizePlayerSettings(settings) {
+        const defaults = getDefaultPlayerSettings();
+        const value = settings && typeof settings === 'object' ? settings : {};
+        return {
+            displayArea: clampNumber(value.displayArea, 0.1, 1, defaults.displayArea),
+            opacity: clampNumber(value.opacity, 0.1, 1, defaults.opacity),
+            showBottom: value.showBottom !== false,
+            speedMultiplier: clampNumber(value.speedMultiplier, 0.5, 2, defaults.speedMultiplier)
+        };
+    }
+
+    function getPlayerSettingsStorageKey() {
+        let userId = '';
+        try {
+            userId = state.apiClient && typeof state.apiClient.getCurrentUserId === 'function'
+                ? state.apiClient.getCurrentUserId() || ''
+                : '';
+        } catch (error) {
+            // Fall back to a browser-wide key if the current user is unavailable.
+        }
+        return PLAYER_SETTINGS_STORAGE_KEY + (userId ? '-' + userId : '');
+    }
+
+    function readPlayerSettings() {
+        try {
+            const stored = window.localStorage.getItem(getPlayerSettingsStorageKey());
+            return normalizePlayerSettings(stored ? JSON.parse(stored) : null);
+        } catch (error) {
+            return getDefaultPlayerSettings();
+        }
+    }
+
+    function writePlayerSettings() {
+        try {
+            window.localStorage.setItem(getPlayerSettingsStorageKey(), JSON.stringify(state.playerSettings));
+        } catch (error) {
+            // The settings remain active for this session when storage is unavailable.
+        }
+    }
+
+    function applyPlayerSettings(settings, resetActiveComments) {
+        state.playerSettings = normalizePlayerSettings(settings);
+        writePlayerSettings();
+        updateOverlayOptions();
+        if (resetActiveComments) {
+            clearActiveComments();
+            resetTimeline();
         }
     }
 
@@ -296,12 +372,15 @@
     }
 
     function injectControls() {
-        const buttonRow = document.querySelector('#videoOsdPage .buttons');
+        const buttonRows = Array.from(document.querySelectorAll('#videoOsdPage .buttons'));
+        const buttonRow = buttonRows.find(function (row) {
+            return row.getClientRects().length > 0;
+        }) || buttonRows[buttonRows.length - 1];
         if (!buttonRow) {
             return;
         }
 
-        if (!state.toggleButton || !state.toggleButton.isConnected) {
+        if (!state.toggleButton) {
             state.toggleButton = makeControlButton('jf-danmaku-toggle', 'comment', '开关弹幕');
             state.toggleButton.addEventListener('click', function (event) {
                 event.preventDefault();
@@ -317,7 +396,7 @@
             });
         }
 
-        if (!state.matchButton || !state.matchButton.isConnected) {
+        if (!state.matchButton) {
             state.matchButton = makeControlButton('jf-danmaku-match', 'manage_search', '手动匹配弹幕');
             state.matchButton.addEventListener('click', function (event) {
                 event.preventDefault();
@@ -326,23 +405,40 @@
             });
         }
 
-        const anchor = buttonRow.querySelector('.btnVideoOsdSettings');
-        if (anchor) {
-            if (!state.toggleButton.isConnected) {
-                buttonRow.insertBefore(state.toggleButton, anchor);
-            }
-            if (!state.matchButton.isConnected) {
-                buttonRow.insertBefore(state.matchButton, anchor);
-            }
-        } else {
-            if (!state.toggleButton.isConnected) {
-                buttonRow.appendChild(state.toggleButton);
-            }
-            if (!state.matchButton.isConnected) {
-                buttonRow.appendChild(state.matchButton);
-            }
+        if (!state.settingsButton) {
+            state.settingsButton = makeControlButton('jf-danmaku-settings', 'tune', '弹幕显示设置');
+            state.settingsButton.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                openSettingsDialog();
+            });
         }
+
+        removeDuplicateControls('.jf-danmaku-toggle', state.toggleButton);
+        removeDuplicateControls('.jf-danmaku-match', state.matchButton);
+        removeDuplicateControls('.jf-danmaku-settings', state.settingsButton);
+
+        const anchor = buttonRow.querySelector('.btnVideoOsdSettings');
+        placeControlGroup(buttonRow, [state.toggleButton, state.matchButton, state.settingsButton], anchor);
         updateControlState();
+    }
+
+    function removeDuplicateControls(selector, control) {
+        document.querySelectorAll(selector).forEach(function (candidate) {
+            if (candidate !== control) {
+                candidate.remove();
+            }
+        });
+    }
+
+    function placeControlGroup(buttonRow, controls, anchor) {
+        let reference = anchor || null;
+        controls.slice().reverse().forEach(function (control) {
+            if (control.parentNode !== buttonRow || control.nextElementSibling !== reference) {
+                buttonRow.insertBefore(control, reference);
+            }
+            reference = control;
+        });
     }
 
     function makeControlButton(className, iconName, title) {
@@ -353,7 +449,7 @@
         button.title = title;
         button.setAttribute('aria-label', title);
         const icon = document.createElement('span');
-        icon.className = 'xlargePaperIconButton material-icons ' + iconName;
+        icon.className = 'xlargePaperIconButton material-icons';
         icon.setAttribute('aria-hidden', 'true');
         icon.textContent = iconName;
         button.appendChild(icon);
@@ -362,16 +458,18 @@
 
     function updateControlState() {
         const pluginEnabled = Boolean(state.options && state.options.enabled);
-        [state.toggleButton, state.matchButton].forEach(function (button) {
+        [state.toggleButton, state.matchButton, state.settingsButton].forEach(function (button) {
             if (button) {
                 button.style.display = pluginEnabled ? '' : 'none';
             }
         });
         if (state.toggleButton) {
             state.toggleButton.classList.toggle('jf-danmaku-control-active', pluginEnabled && state.enabled);
-            state.toggleButton.title = state.match
+            const toggleTitle = state.match
                 ? (state.enabled ? '关闭弹幕' : '开启弹幕') + ' · ' + state.match.animeTitle + ' ' + state.match.episodeTitle
                 : (state.enabled ? '关闭弹幕' : '开启弹幕');
+            state.toggleButton.title = toggleTitle;
+            state.toggleButton.setAttribute('aria-label', toggleTitle);
         }
         if (state.matchButton) {
             state.matchButton.classList.toggle('jf-danmaku-control-active', Boolean(state.match));
@@ -382,10 +480,10 @@
     }
 
     function updateOverlayOptions() {
-        if (!state.overlay || !state.options) {
+        if (!state.overlay || !state.options || !state.playerSettings) {
             return;
         }
-        state.overlay.style.opacity = String(state.options.opacity || 0.9);
+        state.overlay.style.opacity = String(state.playerSettings.opacity);
     }
 
     function scheduleIdentification() {
@@ -569,6 +667,9 @@
         if (!state.overlay || state.activeComments.size >= (state.options.maxOnScreen || 80)) {
             return;
         }
+        if (comment.mode === 4 && state.playerSettings && !state.playerSettings.showBottom) {
+            return;
+        }
         const node = document.createElement('span');
         node.className = 'jf-danmaku-comment';
         node.textContent = comment.text;
@@ -583,7 +684,9 @@
             node.style[position] = (5 + lane * fontSize * 1.35) + 'px';
             node.style.animationDuration = (4 / playbackRate) + 's';
         } else {
-            const mediaDuration = Math.max(3, state.options.speedSeconds || 8);
+            const baseDuration = Math.max(3, state.options.speedSeconds || 8);
+            const speedMultiplier = state.playerSettings ? state.playerSettings.speedMultiplier : 1;
+            const mediaDuration = baseDuration / speedMultiplier;
             const lane = chooseScrollLane(currentTime, mediaDuration, fontSize);
             node.classList.add('jf-danmaku-scroll');
             node.style.top = (5 + lane * fontSize * 1.35) + 'px';
@@ -599,7 +702,8 @@
     }
 
     function chooseScrollLane(currentTime, duration, fontSize) {
-        const laneCount = Math.max(1, Math.floor((state.overlay.clientHeight * 0.68) / (fontSize * 1.35)));
+        const displayArea = state.playerSettings ? state.playerSettings.displayArea : 0.7;
+        const laneCount = Math.max(1, Math.floor((state.overlay.clientHeight * displayArea) / (fontSize * 1.35)));
         if (state.laneAvailability.length !== laneCount) {
             state.laneAvailability = new Array(laneCount).fill(0);
         }
@@ -618,7 +722,8 @@
     }
 
     function chooseFixedLane(position, currentTime, fontSize) {
-        const laneCount = Math.max(1, Math.floor((state.overlay.clientHeight * 0.3) / (fontSize * 1.35)));
+        const displayArea = state.playerSettings ? state.playerSettings.displayArea : 0.7;
+        const laneCount = Math.max(1, Math.floor((state.overlay.clientHeight * displayArea * 0.45) / (fontSize * 1.35)));
         const availability = state.fixedLaneAvailability[position];
         if (availability.length !== laneCount) {
             state.fixedLaneAvailability[position] = new Array(laneCount).fill(0);
@@ -675,13 +780,177 @@
         }
     }
 
+    function makeRangeSetting(id, labelText, minimum, maximum, step, value, formatter, helpText) {
+        const setting = document.createElement('div');
+        setting.className = 'jf-danmaku-setting';
+        const header = document.createElement('div');
+        header.className = 'jf-danmaku-setting-header';
+        const label = document.createElement('label');
+        label.htmlFor = id;
+        label.textContent = labelText;
+        const output = document.createElement('output');
+        output.className = 'jf-danmaku-setting-value';
+        output.setAttribute('for', id);
+        const input = document.createElement('input');
+        input.id = id;
+        input.type = 'range';
+        input.min = String(minimum);
+        input.max = String(maximum);
+        input.step = String(step);
+        input.value = String(value);
+        output.textContent = formatter(Number(input.value));
+        header.appendChild(label);
+        header.appendChild(output);
+        setting.appendChild(header);
+        setting.appendChild(input);
+        if (helpText) {
+            const help = document.createElement('p');
+            help.className = 'jf-danmaku-setting-help';
+            help.textContent = helpText;
+            setting.appendChild(help);
+        }
+        return { element: setting, input: input, output: output, formatter: formatter };
+    }
+
+    function setRangeControlValue(control, value) {
+        control.input.value = String(value);
+        control.output.textContent = control.formatter(Number(control.input.value));
+    }
+
+    function openSettingsDialog() {
+        closeDialog();
+        const settings = state.playerSettings || getDefaultPlayerSettings();
+        const backdrop = document.createElement('div');
+        backdrop.className = 'jf-danmaku-dialog-backdrop';
+        const dialog = document.createElement('div');
+        dialog.className = 'jf-danmaku-dialog';
+        dialog.setAttribute('role', 'dialog');
+        dialog.setAttribute('aria-modal', 'true');
+        dialog.setAttribute('aria-labelledby', 'jfDanmakuSettingsTitle');
+
+        const title = document.createElement('h2');
+        title.id = 'jfDanmakuSettingsTitle';
+        title.textContent = '弹幕显示设置';
+        dialog.appendChild(title);
+
+        const hint = document.createElement('p');
+        hint.className = 'jf-danmaku-setting-help';
+        hint.textContent = '设置会立即生效，并按 Jellyfin 用户保存在当前浏览器。';
+        dialog.appendChild(hint);
+
+        const grid = document.createElement('div');
+        grid.className = 'jf-danmaku-settings-grid';
+        const areaControl = makeRangeSetting(
+            'jfDanmakuDisplayArea',
+            '弹幕显示区域',
+            10,
+            100,
+            10,
+            Math.round(settings.displayArea * 100),
+            function (value) { return value + '%'; },
+            '限制滚动和顶部弹幕占用的视频高度；底部固定弹幕可单独关闭。');
+        const opacityControl = makeRangeSetting(
+            'jfDanmakuOpacity',
+            '弹幕透明度',
+            10,
+            100,
+            5,
+            Math.round(settings.opacity * 100),
+            function (value) { return value + '%'; });
+        const speedControl = makeRangeSetting(
+            'jfDanmakuSpeed',
+            '弹幕速度',
+            0.5,
+            2,
+            0.1,
+            settings.speedMultiplier,
+            function (value) { return value.toFixed(1) + '×'; });
+        grid.appendChild(areaControl.element);
+        grid.appendChild(opacityControl.element);
+
+        const bottomSetting = document.createElement('div');
+        bottomSetting.className = 'jf-danmaku-setting';
+        const bottomLabel = document.createElement('label');
+        bottomLabel.className = 'jf-danmaku-checkbox';
+        const bottomInput = document.createElement('input');
+        bottomInput.type = 'checkbox';
+        bottomInput.checked = settings.showBottom;
+        const bottomText = document.createElement('span');
+        bottomText.textContent = '显示底部弹幕';
+        bottomLabel.appendChild(bottomInput);
+        bottomLabel.appendChild(bottomText);
+        const bottomHelp = document.createElement('p');
+        bottomHelp.className = 'jf-danmaku-setting-help';
+        bottomHelp.textContent = '关闭后隐藏模式 4 的底部固定弹幕，可避免遮挡字幕。';
+        bottomSetting.appendChild(bottomLabel);
+        bottomSetting.appendChild(bottomHelp);
+        grid.appendChild(bottomSetting);
+        grid.appendChild(speedControl.element);
+        dialog.appendChild(grid);
+
+        function bindRange(control, propertyName, convert, resetActiveComments) {
+            control.input.addEventListener('input', function () {
+                const value = Number(control.input.value);
+                control.output.textContent = control.formatter(value);
+                const next = Object.assign({}, state.playerSettings);
+                next[propertyName] = convert(value);
+                applyPlayerSettings(next, resetActiveComments);
+            });
+        }
+
+        bindRange(areaControl, 'displayArea', function (value) { return value / 100; }, true);
+        bindRange(opacityControl, 'opacity', function (value) { return value / 100; }, false);
+        bindRange(speedControl, 'speedMultiplier', function (value) { return value; }, true);
+        bottomInput.addEventListener('change', function () {
+            const next = Object.assign({}, state.playerSettings, { showBottom: bottomInput.checked });
+            applyPlayerSettings(next, true);
+        });
+
+        const footer = document.createElement('div');
+        footer.className = 'jf-danmaku-dialog-row jf-danmaku-dialog-footer';
+        const resetButton = document.createElement('button');
+        resetButton.type = 'button';
+        resetButton.className = 'secondary';
+        resetButton.textContent = '恢复默认';
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.textContent = '完成';
+        footer.appendChild(resetButton);
+        footer.appendChild(closeButton);
+        dialog.appendChild(footer);
+        backdrop.appendChild(dialog);
+        document.body.appendChild(backdrop);
+        state.dialog = backdrop;
+
+        resetButton.addEventListener('click', function () {
+            const defaults = getDefaultPlayerSettings();
+            applyPlayerSettings(defaults, true);
+            setRangeControlValue(areaControl, Math.round(defaults.displayArea * 100));
+            setRangeControlValue(opacityControl, Math.round(defaults.opacity * 100));
+            setRangeControlValue(speedControl, defaults.speedMultiplier);
+            bottomInput.checked = defaults.showBottom;
+        });
+        closeButton.addEventListener('click', closeDialog);
+        backdrop.addEventListener('click', function (event) {
+            if (event.target === backdrop) {
+                closeDialog();
+            }
+        });
+        backdrop.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeDialog();
+            }
+        });
+        window.setTimeout(function () { areaControl.input.focus(); }, 0);
+    }
+
     function openMatchDialog() {
         if (!state.itemId) {
             showToast('暂时无法识别当前播放项目，请稍后再试。');
             scheduleIdentification();
             return;
         }
-        closeMatchDialog();
+        closeDialog();
         const backdrop = document.createElement('div');
         backdrop.className = 'jf-danmaku-dialog-backdrop';
         const dialog = document.createElement('div');
@@ -790,15 +1059,15 @@
                 search();
             }
         });
-        closeButton.addEventListener('click', closeMatchDialog);
+        closeButton.addEventListener('click', closeDialog);
         backdrop.addEventListener('click', function (event) {
             if (event.target === backdrop) {
-                closeMatchDialog();
+                closeDialog();
             }
         });
         backdrop.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
-                closeMatchDialog();
+                closeDialog();
             }
         });
 
@@ -838,7 +1107,7 @@
             if (itemId === state.itemId) {
                 applyLoadResult(response);
             }
-            closeMatchDialog();
+            closeDialog();
             showToast('弹幕匹配已更新，共 ' + state.comments.length + ' 条');
         } catch (error) {
             status.textContent = getErrorMessage(error, '保存匹配失败。');
@@ -846,7 +1115,7 @@
         }
     }
 
-    function closeMatchDialog() {
+    function closeDialog() {
         if (state.dialog) {
             state.dialog.remove();
             state.dialog = null;
@@ -909,6 +1178,7 @@
             state.apiClient = await waitForApiClient();
             state.options = await waitForOptions();
             state.enabled = readLocalEnabled();
+            state.playerSettings = readPlayerSettings();
             const observer = new MutationObserver(function (mutations) {
                 const needsAttach = mutations.some(function (mutation) {
                     const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;

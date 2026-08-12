@@ -1,6 +1,6 @@
 # Jellyfin Danmaku
 
-这是一个面向 Jellyfin 10.11 / .NET 9 与 Jellyfin 12 / .NET 10 的实验性网页端弹幕插件。服务端负责匹配、缓存、密钥保护和用户权限校验，浏览器端在 Jellyfin Web 播放器上渲染滚动、顶部和底部弹幕，并提供开关与手动匹配按钮。
+这是一个面向 Jellyfin 10.11 / .NET 9 与 Jellyfin 12 / .NET 10 的实验性网页端弹幕插件。服务端负责匹配、缓存、密钥保护和用户权限校验，浏览器端在 Jellyfin Web 播放器上渲染滚动、顶部和底部弹幕，并提供开关、手动匹配与显示设置按钮。
 
 > Jellyfin 插件 ABI 和 .NET 运行时必须与服务器版本匹配，因此本项目分别生成 Jellyfin 10.11 与 Jellyfin 12 构建，不能在两个版本间混用同一个 DLL。
 
@@ -9,7 +9,8 @@
 - 默认使用[弹弹play](https://www.dandanplay.com/)开放平台。
 - 开始播放时优先以本地文件前 16 MiB 的 MD5、文件名、大小和时长匹配；不可读取文件时回退到 TMDB ID 或标题/集数搜索。
 - 只自动采用精确结果或唯一结果，歧义结果留给用户手动选择。
-- 在播放器 OSD 设置按钮旁增加“弹幕开关”和“手动匹配”按钮。
+- 在播放器 OSD 设置按钮旁增加“弹幕开关”、“手动匹配”和“显示设置”按钮。
+- 播放器内可即时调整 10%～100% 显示区域、10%～100% 透明度、底部固定弹幕开关和 0.5×～2.0× 滚动速度；设置按 Jellyfin 用户保存在当前浏览器。
 - 管理页面可配置弹弹play、自定义 HTTP 源、缓存和显示参数。
 - 弹弹play AppSecret 和自定义源 API Key 不会返回浏览器。
 - 手动或自动匹配会按 Jellyfin Item ID 持久化，供所有有权播放该项目的用户复用。
@@ -33,7 +34,7 @@ dotnet build Jellyfin.Plugin.Danmaku.csproj -c Release -f net10.0
 | 10.11.11 | .NET 9 / Jellyfin 10.11.11 | `bin/Release/net9.0/Jellyfin.Plugin.Danmaku.dll` |
 | 12.x | .NET 10 / Jellyfin 12 | `bin/Release/net10.0/Jellyfin.Plugin.Danmaku.dll` |
 
-将正确的 DLL 复制到 Jellyfin 数据目录下独立的插件目录，例如 `plugins/Danmaku_0.1.0.0/`，然后重启 Jellyfin。进入“控制台 → 插件 → 弹幕”填写弹弹play AppId 与 AppSecret，保存后再次重启并强制刷新浏览器页面。若日志出现 `ReflectionTypeLoadException` 或“不兼容的 shared libraries”，首先确认没有把 `net10.0` 产物安装到 Jellyfin 10.11。
+将正确的 DLL 复制到 Jellyfin 数据目录下独立的插件目录，例如 `plugins/Danmaku_0.2.0.0/`，然后重启 Jellyfin。进入“控制台 → 插件 → 弹幕”填写弹弹play AppId 与 AppSecret，保存后再次重启并强制刷新浏览器页面。若日志出现 `ReflectionTypeLoadException` 或“不兼容的 shared libraries”，首先确认没有把 `net10.0` 产物安装到 Jellyfin 10.11。
 
 插件启动时会在 Jellyfin Web 的 `index.html` 中写入一段带有明确起止标记的同源脚本标签，重复启动不会重复插入，卸载时会尝试移除。若 Web 根目录为只读，服务端仍可启动，但需要将以下标签以等价方式加入所使用的 jellyfin-web 构建中：
 

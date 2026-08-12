@@ -114,16 +114,18 @@
                         <input id="MaxComments" type="number" is="emby-input" min="100" max="30000" />
                     </div>
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="DanmakuOpacity">透明度（0.1 - 1）</label>
+                        <label class="inputLabel inputLabelUnfocused" for="DanmakuOpacity">默认透明度（0.1 - 1）</label>
                         <input id="DanmakuOpacity" type="number" is="emby-input" min="0.1" max="1" step="0.05" />
+                        <div class="fieldDescription">作为尚未单独设置过的 Web 播放器默认值。</div>
                     </div>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="FontScale">字号缩放（0.5 - 2.5）</label>
                         <input id="FontScale" type="number" is="emby-input" min="0.5" max="2.5" step="0.1" />
                     </div>
                     <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="SpeedSeconds">滚动穿屏秒数</label>
+                        <label class="inputLabel inputLabelUnfocused" for="SpeedSeconds">默认滚动穿屏秒数</label>
                         <input id="SpeedSeconds" type="number" is="emby-input" min="3" max="30" step="0.5" />
+                        <div class="fieldDescription">Web 播放器中的速度倍率以此时长为 1.0×。</div>
                     </div>
                     <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="MaxOnScreen">同屏上限</label>
