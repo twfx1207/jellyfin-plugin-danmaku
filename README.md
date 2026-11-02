@@ -12,6 +12,8 @@
 - 在播放器 OSD 设置按钮旁增加“弹幕开关”、“手动匹配”和“显示设置”按钮。
 - 播放器内可即时调整 10%～100% 显示区域、10%～100% 透明度、底部固定弹幕开关和 0.5×～2.0× 滚动速度；设置按 Jellyfin 用户保存在当前浏览器。
 - 管理页面可配置弹弹play、自定义 HTTP 源、缓存和显示参数。
+- 弹幕源连接使用 IPv6/IPv4 快速回退：IPv6 250 毫秒内未成功时并行尝试 IPv4，不需要全局关闭 IPv6；回退发生在 TCP 建连阶段，不会重复提交匹配请求。
+- 连接超时为 10 秒，请求（含响应体）总时限为 20 秒；失败时会显示具体接口与网络错误，日志不记录鉴权头或查询参数。
 - 弹弹play AppSecret 和自定义源 API Key 不会返回浏览器。
 - 手动或自动匹配会按 Jellyfin Item ID 持久化，供所有有权播放该项目的用户复用。
 
@@ -23,7 +25,7 @@
 # Jellyfin 10.11.11
 dotnet build Jellyfin.Plugin.Danmaku.csproj -c Release -f net9.0
 
-# Jellyfin 12
+# Jellyfin 12.3
 dotnet build Jellyfin.Plugin.Danmaku.csproj -c Release -f net10.0
 ```
 
@@ -32,19 +34,26 @@ dotnet build Jellyfin.Plugin.Danmaku.csproj -c Release -f net10.0
 | Jellyfin 服务器 | 插件依赖 | DLL 路径 |
 | --- | --- | --- |
 | 10.11.11 | .NET 9 / Jellyfin 10.11.11 | `bin/Release/net9.0/Jellyfin.Plugin.Danmaku.dll` |
-| 12.x | .NET 10 / Jellyfin 12 | `bin/Release/net10.0/Jellyfin.Plugin.Danmaku.dll` |
+| 12.3 | .NET 10 / Jellyfin 12.3.0 | `bin/Release/net10.0/Jellyfin.Plugin.Danmaku.dll` |
 
 每次 GitHub Actions 构建也会在运行详情页底部生成两个可下载产物，名称中会明确标出 Jellyfin 版本与目标框架。压缩包内只包含对应版本的 `Jellyfin.Plugin.Danmaku.dll`，请勿跨版本混用。
 
-将正确的 DLL 复制到 Jellyfin 数据目录下独立的插件目录，例如 `plugins/Danmaku_0.2.1.0/`，然后完整重启 Jellyfin。进入“控制台 → 插件 → 弹幕”填写弹弹play AppId 与 AppSecret，保存后再次重启并强制刷新浏览器页面。若日志出现 `ReflectionTypeLoadException` 或“不兼容的 shared libraries”，首先确认没有把 `net10.0` 产物安装到 Jellyfin 10.11。
+将正确的 DLL 复制到 Jellyfin 数据目录下独立的插件目录，例如 `plugins/Danmaku_0.2.2.0/`，然后完整重启 Jellyfin。进入“控制台 → 插件 → 弹幕”填写弹弹play AppId 与 AppSecret，保存后再次重启并强制刷新浏览器页面。若日志出现 `ReflectionTypeLoadException` 或“不兼容的 shared libraries”，首先确认没有把 `net10.0` 产物安装到 Jellyfin 10.11。
 
 插件启动时会在 Jellyfin Web 的 `index.html` 中写入一段带有明确起止标记的同源脚本标签。脚本 URL 携带插件程序集版本，因此升级会替换旧注入块并绕过浏览器或代理缓存；同版本重复启动不会重复插入，卸载时会尝试移除。启动日志应出现 `Injected Danmaku web client <版本>` 或 `Danmaku web client <版本> is already injected`。若 Web 根目录为只读，服务端仍可启动，但日志会给出警告，需要将以下标签以等价方式加入所使用的 jellyfin-web 构建中：
 
 ```html
-<script data-plugin="Jellyfin.Plugin.Danmaku" data-version="0.2.1.0" src="../Danmaku/client.js?v=0.2.1.0" defer></script>
+<script data-plugin="Jellyfin.Plugin.Danmaku" data-version="0.2.2.0" src="../Danmaku/client.js?v=0.2.2.0" defer></script>
 ```
 
 此注入方式是因为 Jellyfin 服务端插件能够注册控制器和管理页面，但 jellyfin-web 目前没有稳定的播放器扩展 ABI。Web 客户端升级后，播放器 DOM 选择器可能需要随之调整。
+
+网络回退、取消、超时和真实 IPv4 POST 的回归测试不依赖外部弹幕服务：
+
+```powershell
+dotnet run --project tests/Jellyfin.Plugin.Danmaku.Tests -c Release -f net10.0
+node --test tests/web-client.test.cjs
+```
 
 ## 弹弹play 配置
 

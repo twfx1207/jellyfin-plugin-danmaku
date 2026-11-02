@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const CLIENT_VERSION = '0.2.1.0';
+    const CLIENT_VERSION = '0.2.2.0';
     if (window.__jellyfinDanmakuLoaded) {
         console.debug('[Danmaku] Web client ' + CLIENT_VERSION + ' skipped because a client is already active.');
         return;
@@ -212,7 +212,7 @@
         });
     }
 
-    function apiRequest(method, path, body) {
+    async function apiRequest(method, path, body) {
         const request = {
             type: method,
             url: state.apiClient.getUrl(path),
@@ -222,7 +222,34 @@
             request.contentType = 'application/json';
             request.data = JSON.stringify(body);
         }
-        return state.apiClient.ajax(request);
+        let timer = 0;
+        const deadline = new Promise(function (_, reject) {
+            timer = window.setTimeout(function () {
+                reject(new Error('弹幕请求超时，请检查服务端网络后重试。'));
+            }, 35000);
+        });
+        const operation = Promise.resolve().then(function () {
+            return state.apiClient.ajax(request);
+        }).catch(async function (error) {
+            // Jellyfin's client rejects with a Fetch Response, rather than a jQuery responseJSON object.
+            if (error && typeof error.json === 'function') {
+                let problem = null;
+                try {
+                    problem = await error.json();
+                } catch (parseError) {
+                    // A reverse proxy may return an HTML error page instead of problem JSON.
+                }
+                if (problem && (problem.detail || problem.Detail)) {
+                    throw new Error(problem.detail || problem.Detail);
+                }
+            }
+            throw error;
+        });
+        try {
+            return await Promise.race([operation, deadline]);
+        } finally {
+            window.clearTimeout(timer);
+        }
     }
 
     function readLocalEnabled() {
@@ -1145,6 +1172,9 @@
         }
         if (error.detail || error.Detail) {
             return error.detail || error.Detail;
+        }
+        if (error instanceof Error && error.message) {
+            return error.message;
         }
         return fallback;
     }

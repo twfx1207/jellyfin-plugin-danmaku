@@ -3,6 +3,7 @@ using System.Text.Json;
 using Jellyfin.Plugin.Danmaku.Configuration;
 using Jellyfin.Plugin.Danmaku.Models;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Danmaku.Services;
 
@@ -10,11 +11,13 @@ internal sealed class CustomHttpSource : IDanmakuSource
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IMemoryCache _cache;
+    private readonly ILogger<CustomHttpSource> _logger;
 
-    public CustomHttpSource(IHttpClientFactory httpClientFactory, IMemoryCache cache)
+    public CustomHttpSource(IHttpClientFactory httpClientFactory, IMemoryCache cache, ILogger<CustomHttpSource> logger)
     {
         _httpClientFactory = httpClientFactory;
         _cache = cache;
+        _logger = logger;
     }
 
     public string Id => "custom";
@@ -196,26 +199,8 @@ internal sealed class CustomHttpSource : IDanmakuSource
         }
 
         var client = _httpClientFactory.CreateClient(DanmakuService.HttpClientName);
-        using var response = await client.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken).ConfigureAwait(false);
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new DanmakuSourceException(
-                $"自定义弹幕源请求失败 ({(int)response.StatusCode}): {response.ReasonPhrase}");
-        }
-
-        try
-        {
-            using var document = JsonDocument.Parse(payload);
-            return document.RootElement.Clone();
-        }
-        catch (JsonException exception)
-        {
-            throw new DanmakuSourceException("自定义弹幕源返回了无法解析的数据。", exception);
-        }
+        return await DanmakuHttpTransport.SendAsync(
+            client, request, "自定义弹幕源", _logger, cancellationToken).ConfigureAwait(false);
     }
 
     private static void EnsureConfigured(PluginConfiguration configuration)

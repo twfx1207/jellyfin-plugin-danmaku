@@ -261,29 +261,8 @@ internal sealed partial class DandanplaySource : IDanmakuSource
 
         AddAuthenticationHeaders(configuration, request);
         var client = _httpClientFactory.CreateClient(DanmakuService.HttpClientName);
-        using var response = await client.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken).ConfigureAwait(false);
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
-        {
-            var upstreamMessage = response.Headers.TryGetValues("X-Error-Message", out var messages)
-                ? messages.FirstOrDefault()
-                : null;
-            throw new DanmakuSourceException(
-                $"弹弹play 请求失败 ({(int)response.StatusCode}): {upstreamMessage ?? response.ReasonPhrase}");
-        }
-
-        try
-        {
-            using var document = JsonDocument.Parse(payload);
-            return document.RootElement.Clone();
-        }
-        catch (JsonException exception)
-        {
-            throw new DanmakuSourceException("弹弹play 返回了无法解析的数据。", exception);
-        }
+        return await DanmakuHttpTransport.SendAsync(
+            client, request, "弹弹play", _logger, cancellationToken).ConfigureAwait(false);
     }
 
     private static void AddAuthenticationHeaders(

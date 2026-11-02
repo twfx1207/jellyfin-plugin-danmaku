@@ -20,16 +20,19 @@ jobs:
         include:
           - jellyfin: "10.11.11"
             framework: net9.0
-            artifact: Jellyfin.Plugin.Danmaku-0.2.1.0-Jellyfin-10.11.11-net9.0
-          - jellyfin: "12"
+            artifact: Jellyfin.Plugin.Danmaku-0.2.2.0-Jellyfin-10.11.11-net9.0
+          - jellyfin: "12.3"
             framework: net10.0
-            artifact: Jellyfin.Plugin.Danmaku-0.2.1.0-Jellyfin-12-net10.0
+            artifact: Jellyfin.Plugin.Danmaku-0.2.2.0-Jellyfin-12.3-net10.0
     steps:
       - name: Check out source
         uses: actions/checkout@v5
 
       - name: Check web client syntax
         run: node --check Web/client.js
+
+      - name: Test web request error handling
+        run: node --test tests/web-client.test.cjs
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
@@ -43,6 +46,9 @@ jobs:
 
       - name: Build
         run: dotnet build Jellyfin.Plugin.Danmaku.csproj --configuration Release --framework ${{ matrix.framework }} --no-restore
+
+      - name: Test network fallback and timeouts
+        run: dotnet run --project tests/Jellyfin.Plugin.Danmaku.Tests --configuration Release --framework ${{ matrix.framework }} --no-restore
 
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v7
