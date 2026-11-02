@@ -45,8 +45,9 @@ internal static partial class DanmakuHttpTransport
                 timeoutSource.Token).ConfigureAwait(false);
             if (logger.IsEnabled(LogLevel.Debug))
             {
+                var elapsedMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
                 LogResponse(logger, sourceName, request.Method.Method, host, path,
-                    (int)response.StatusCode, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+                    (int)response.StatusCode, elapsedMs);
             }
             if (!response.IsSuccessStatusCode)
             {
