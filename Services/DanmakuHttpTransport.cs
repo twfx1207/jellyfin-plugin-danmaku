@@ -43,8 +43,11 @@ internal static partial class DanmakuHttpTransport
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 timeoutSource.Token).ConfigureAwait(false);
-            LogResponse(logger, sourceName, request.Method.Method, host, path,
-                (int)response.StatusCode, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            if (logger.IsEnabled(LogLevel.Debug))
+            {
+                LogResponse(logger, sourceName, request.Method.Method, host, path,
+                    (int)response.StatusCode, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            }
             if (!response.IsSuccessStatusCode)
             {
                 var upstreamMessage = response.Headers.TryGetValues("X-Error-Message", out var messages)

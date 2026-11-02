@@ -21,7 +21,7 @@ internal static class HappyEyeballsConnector
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var attempts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var attempts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var ipv6 = StartConnectionAsync(connect, AddressFamily.InterNetworkV6, attempts.Token);
         Task<Stream>? ipv4 = null;
         Task<Stream>? winner = null;
@@ -53,15 +53,14 @@ internal static class HappyEyeballsConnector
         }
         finally
         {
-            await attempts.CancelAsync().ConfigureAwait(false);
-            if (ipv6 != winner)
+            try
             {
-                _ = DisposeUnusedConnectionAsync(ipv6);
+                await attempts.CancelAsync().ConfigureAwait(false);
             }
-
-            if (ipv4 is not null && ipv4 != winner)
+            finally
             {
-                _ = DisposeUnusedConnectionAsync(ipv4);
+                // Cleanup owns the token source until both losing attempts have actually stopped.
+                _ = CleanupAttemptsAsync(attempts, ipv6 != winner ? ipv6 : null, ipv4 != winner ? ipv4 : null);
             }
         }
     }
@@ -90,6 +89,23 @@ internal static class HappyEyeballsConnector
         {
             socket.Dispose();
             throw;
+        }
+    }
+
+    private static async Task CleanupAttemptsAsync(
+        CancellationTokenSource attempts,
+        Task<Stream>? ipv6,
+        Task<Stream>? ipv4)
+    {
+        try
+        {
+            var disposeIpv6 = ipv6 is null ? Task.CompletedTask : DisposeUnusedConnectionAsync(ipv6);
+            var disposeIpv4 = ipv4 is null ? Task.CompletedTask : DisposeUnusedConnectionAsync(ipv4);
+            await Task.WhenAll(disposeIpv6, disposeIpv4).ConfigureAwait(false);
+        }
+        finally
+        {
+            attempts.Dispose();
         }
     }
 
